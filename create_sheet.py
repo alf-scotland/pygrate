@@ -11,7 +11,7 @@ LOG = logging.getLogger(__name__)
 
 def read_directory(path, levels):
     """ Get the JSON representation of the provided path. """
-    LOG.info(f'Reading directory using tree: {path} with {levels} level(s)')
+    LOG.info(f'Reading directory using tree with {levels} level(s): {path}')
 
     json_raw = subprocess.check_output(['tree', '-ugfJ', '-L', str(levels), '--du', path])
     json_decoded = json_raw.decode('utf-8')
