@@ -11,7 +11,7 @@ def read_directory(path):
     json_raw = subprocess.check_output(['tree', '-ugfJ', '--du', path])
     json_decoded = json_raw.decode('utf-8')
 
-    # need to fix trailing ,
+    # need to fix trailing , in JSON for tree version < 1.8.0
     json_flattned = re.sub('[\n\r]+', '', json_decoded)
     json_wo_trailing = re.sub(r',\s*\]', ']', json_flattned)
 
