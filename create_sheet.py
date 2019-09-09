@@ -2,13 +2,18 @@ import re
 import subprocess
 import json
 import argparse
+import logging
 
 import xlsxwriter
 
+LOG = logging.getLogger(__name__)
 
-def read_directory(path):
+
+def read_directory(path, levels):
     """ Get the JSON representation of the provided path. """
-    json_raw = subprocess.check_output(['tree', '-ugfJ', '--du', path])
+    LOG.info(f'Reading directory using tree: {path} with {levels} level(s)')
+
+    json_raw = subprocess.check_output(['tree', '-ugfJ', '-L', str(levels), '--du', path])
     json_decoded = json_raw.decode('utf-8')
 
     # need to fix trailing , in JSON for tree version < 1.8.0
@@ -17,11 +22,15 @@ def read_directory(path):
 
     res = json.loads(json_wo_trailing)
 
+    LOG.info(f'Completed reading directory: {path}')
+
     return res
 
 
 def create_excel(path):
     """ Create the workbook and worksheet """
+    LOG.info(f'Creating Excel workbook: {path}')
+
     ws_name = 'Files+Folders'
     wb = xlsxwriter.Workbook(path)
     ws = wb.add_worksheet(ws_name)
@@ -29,6 +38,8 @@ def create_excel(path):
 
 
 def _write_header(ws):
+    LOG.info('Writing header into sheet')
+
     ws.write(0, 0, 'Folder/File')
     ws.write(0, 1, 'Owner: User')
     ws.write(0, 2, 'Owner: Group')
@@ -68,7 +79,8 @@ def _write_rows(ws, data, indent=0):
 
 
 def _write_validations(ws):
-    # write action column
+    LOG.info('Writing validations...')
+
     ws.data_validation(1, 4, _OFFSET, 4, {
         'validate': 'list',
         'source': ['Not defined', 'Move', 'Delete']
@@ -83,12 +95,18 @@ def populate_sheet(ws, data):
 
 
 def main():
+    # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('directory')
     parser.add_argument('output')
+    parser.add_argument('--levels', type=int, default=5)
     args = parser.parse_args()
 
-    data = read_directory(args.directory)
+    # configure logging
+    logging.basicConfig(level=logging.INFO)
+
+    # process directories
+    data = read_directory(args.directory, args.levels)
     wb, ws = create_excel(args.output)
     populate_sheet(ws, data)
     wb.close()
