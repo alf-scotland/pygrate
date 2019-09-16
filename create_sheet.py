@@ -16,15 +16,28 @@ def _get_tree_version():
 
 
 def _read_tree_output(path, levels, file_limit):
-    raw = subprocess.check_output([
+    args = [
         'tree',
         '-ugfhJ',
         '-L', str(levels),
         '--filelimit', str(file_limit),
         '--du',
         path
-    ])
+    ]
+    LOG.info('Calling: %s', ' '.join(args))
+    raw = subprocess.check_output(args)
     return raw.decode('utf-8')
+
+
+def _fix_trailing_commas(json_raw):
+    LOG.info('Fixing trailing commas for tree version below 1.8.0')
+    json_raw = re.sub('[\n\r]+', '', json_raw)
+    json_raw = re.sub(r',\s*\]', ']', json_raw)
+    return json_raw
+
+
+def _fix_error_messages(json_raw):
+    return re.sub(r',"error":"[^"]*"', '', json_raw)
 
 
 def read_directory(path, levels, file_limit):
@@ -43,12 +56,10 @@ def read_directory(path, levels, file_limit):
 
     # need to fix trailing , in JSON for tree version < 1.8.0
     if tree_version < LooseVersion('v1.8'):
-        LOG.info('Fixing trailing commas for tree version below 1.8.0')
-        json_raw = re.sub('[\n\r]+', '', json_raw)
-        json_raw = re.sub(r',\s*\]', ']', json_raw)
+        json_raw = _fix_trailing_commas(json_raw)
 
     # need to fix wrong tree error message
-    json_raw = re.sub(r',"error":"[^"]*"', '', json_raw)
+    json_raw = _fix_error_messages(json_raw)
 
     res = json.loads(json_raw)
 
