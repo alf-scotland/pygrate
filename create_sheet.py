@@ -13,7 +13,7 @@ def read_directory(path, levels):
     """ Get the JSON representation of the provided path. """
     LOG.info(f'Reading directory using tree with {levels} level(s): {path}')
 
-    json_raw = subprocess.check_output(['tree', '-ugfJ', '-L', str(levels), '--du', path])
+    json_raw = subprocess.check_output(['tree', '-ugfhJ', '-L', str(levels), '--du', path])
     json_decoded = json_raw.decode('utf-8')
 
     # need to fix trailing , in JSON for tree version < 1.8.0
