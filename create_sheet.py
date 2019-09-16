@@ -20,7 +20,10 @@ def read_directory(path, levels):
     json_flattned = re.sub('[\n\r]+', '', json_decoded)
     json_wo_trailing = re.sub(r',\s*\]', ']', json_flattned)
 
-    res = json.loads(json_wo_trailing)
+    # need to fix wrong tree error message
+    json_wo_errors = re.sub(r',"error":"[^"]*"', '', json_wo_trailing)
+
+    res = json.loads(json_wo_errors)
 
     LOG.info(f'Completed reading directory: {path}')
 
