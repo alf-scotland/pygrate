@@ -9,11 +9,23 @@ import xlsxwriter
 LOG = logging.getLogger(__name__)
 
 
-def read_directory(path, levels):
-    """ Get the JSON representation of the provided path. """
-    LOG.info(f'Reading directory using tree with {levels} level(s): {path}')
+def _read_tree_output(path, levels, file_limit):
+    return subprocess.check_output([
+        'tree',
+        '-ugfhJ',
+        '-L', str(levels),
+        '--filelimit', str(file_limit),
+        '--du',
+        path
+    ])
 
-    json_raw = subprocess.check_output(['tree', '-ugfhJ', '-L', str(levels), '--du', path])
+
+def read_directory(path, levels, file_limit):
+    """ Get the JSON representation of the provided path. """
+    LOG.info(f'Reading directory using tree with {levels} '
+        f'level(s) and {file_limit} file-limit: {path}')
+
+    json_raw = _read_tree_output(path, levels, file_limit)
     json_decoded = json_raw.decode('utf-8')
 
     # need to fix trailing , in JSON for tree version < 1.8.0
@@ -103,13 +115,14 @@ def main():
     parser.add_argument('directory')
     parser.add_argument('output')
     parser.add_argument('--levels', type=int, default=5)
+    parser.add_argument('--file-limit', type=int, default=50)
     args = parser.parse_args()
 
     # configure logging
     logging.basicConfig(level=logging.INFO)
 
     # process directories
-    data = read_directory(args.directory, args.levels)
+    data = read_directory(args.directory, args.levels, args.file_limit)
     wb, ws = create_excel(args.output)
     populate_sheet(ws, data)
     wb.close()
