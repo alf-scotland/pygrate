@@ -3,14 +3,20 @@ import subprocess
 import json
 import argparse
 import logging
+from distutils.version import LooseVersion
 
 import xlsxwriter
 
 LOG = logging.getLogger(__name__)
 
 
+def _get_tree_version():
+    raw = subprocess.check_output(['tree', '--version'])
+    return LooseVersion(raw.decode('utf-8').split(' ')[1])
+
+
 def _read_tree_output(path, levels, file_limit):
-    return subprocess.check_output([
+    raw = subprocess.check_output([
         'tree',
         '-ugfhJ',
         '-L', str(levels),
@@ -18,27 +24,35 @@ def _read_tree_output(path, levels, file_limit):
         '--du',
         path
     ])
+    return raw.decode('utf-8')
 
 
 def read_directory(path, levels, file_limit):
     """ Get the JSON representation of the provided path. """
     LOG.info(f'Reading directory using tree with {levels} '
-        f'level(s) and {file_limit} file-limit: {path}')
+             f'level(s) and {file_limit} file-limit: {path}')
+
+    tree_version = _get_tree_version()
+    LOG.info(f'Using tree version: {tree_version}')
+
+    if tree_version < LooseVersion('v1.7'):
+        raise Exception(
+            'tree version too low to support json output. Please upgrade.')
 
     json_raw = _read_tree_output(path, levels, file_limit)
-    json_decoded = json_raw.decode('utf-8')
 
     # need to fix trailing , in JSON for tree version < 1.8.0
-    json_flattned = re.sub('[\n\r]+', '', json_decoded)
-    json_wo_trailing = re.sub(r',\s*\]', ']', json_flattned)
+    if tree_version < LooseVersion('v1.8'):
+        LOG.info('Fixing trailing commas for tree version below 1.8.0')
+        json_raw = re.sub('[\n\r]+', '', json_raw)
+        json_raw = re.sub(r',\s*\]', ']', json_raw)
 
     # need to fix wrong tree error message
-    json_wo_errors = re.sub(r',"error":"[^"]*"', '', json_wo_trailing)
+    json_raw = re.sub(r',"error":"[^"]*"', '', json_raw)
 
-    res = json.loads(json_wo_errors)
+    res = json.loads(json_raw)
 
     LOG.info(f'Completed reading directory: {path}')
-
     return res
 
 
