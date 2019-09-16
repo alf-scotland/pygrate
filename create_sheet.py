@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import json
@@ -71,7 +72,7 @@ def create_excel(path):
     """ Create the workbook and worksheet """
     LOG.info(f'Creating Excel workbook: {path}')
 
-    ws_name = 'Files+Folders'
+    ws_name = os.path.basename(path)
     wb = xlsxwriter.Workbook(path)
     ws = wb.add_worksheet(ws_name)
     return wb, ws
