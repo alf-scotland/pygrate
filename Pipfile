@@ -6,9 +6,11 @@ verify_ssl = true
 [dev-packages]
 pylint = "*"
 autopep8 = "*"
+pytest = "*"
+pyfakefs = "*"
 
 [packages]
-xlsxwriter = "*"
+pygrate = {path = ".",editable = true}
 
 [requires]
 python_version = "3.7"
