@@ -1,5 +1,6 @@
 import pathlib
 import os
+import logging
 
 import pytest
 
@@ -49,10 +50,16 @@ def test_sheet_to_actions(example_migration_sheet):
     assert len(actions) == 4
 
 
-def test_perform_actions(example_migration_sheet, fs):
+def test_perform_actions(example_migration_sheet, fs, caplog):
     _mock_directory_structure(fs)
     actions = sheet_to_actions(example_migration_sheet)
-    perform_actions(actions)
+
+    with caplog.at_level(logging.WARNING):
+        perform_actions(actions)
+
+    # check if logged on missing actions
+    warnings = [r for r in caplog.records if r.levelname == 'WARNING']
+    assert len(warnings) == 2
 
     # check if deleted
     assert not os.path.exists('/source-directory/a')
@@ -80,7 +87,7 @@ def test_perform_actions_missing_source(example_migration_sheet, fs):
 
 def test_perform_actions_existing_target(example_migration_sheet, fs):
     _mock_directory_structure(fs)
-    fs.create_dir('/target-directory/c/d/d')
+    fs.create_file('/target-directory/c/d/Pipfile')
 
     actions = sheet_to_actions(example_migration_sheet)
     with pytest.raises(IOError):

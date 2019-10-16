@@ -52,24 +52,34 @@ class Action:
             self.source.unlink()
         else:
             shutil.rmtree(str(self.source))
+    
+    def _perform_on_children(self):
+        for s_source in self.source.iterdir():
+            Action(
+                self.action,
+                -1,
+                s_source,
+                self.target / s_source.name
+            ).perform()
+    
+    def _migrate(self, func):
+        if self.target.exists() and self.source.is_dir() and self.target.is_dir():
+            LOG.debug(f'Source {self.source} and target {self.target} are existing directories')
+            self._perform_on_children()
+        elif self.target.exists():
+            raise IOError(f'Target exists: {self.target}')
+        else:
+            func(str(self.source), str(self.target))
 
     def _copy(self):
-        # check if target exists to reverse copy things from source
-        if self.target.exists() and self.source.is_dir() and self.target.is_dir():
-            for s_source in self.source.iterdir():
-                Action(
-                    SourceAction.COPY,
-                    -1,
-                    s_source,
-                    self.target / s_source.name
-                ).perform()
-        else:
-            shutil.copytree(str(self.source), str(self.target))
+        self._migrate(shutil.copytree)
 
     def _move(self):
-        shutil.move(str(self.source), str(self.target))
+        self._migrate(shutil.move)
 
     def perform(self):
+        LOG.info(f'About to perform: {self}')
+
         if self.action == SourceAction.DELETE:
             self._delete()
         elif self.action == SourceAction.COPY:
@@ -80,6 +90,8 @@ class Action:
             raise ValueError('Action not defined')
         else:
             raise ValueError(f'Unknown action: {self.action}')
+
+        LOG.info(f'Action performed: {self}')
 
     __str__ = __repr__
 
@@ -121,9 +133,7 @@ def _prioritize_actions(actions):
 def perform_actions(actions):
     """ Perform actions """
     for action in _prioritize_actions(actions):
-        LOG.info(f'About to perform: {action}')
         action.perform()
-        LOG.info(f'Action performed: {action}')
 
 
 def dry_run_actions(actions):
