@@ -15,7 +15,7 @@ def test_action_delete_file(fs):
     path = Path('./from/to-be-removed/example.txt')
     fs.create_file(str(path))
 
-    action = Action(SourceAction.DELETE, -1, path, None)
+    action = Action(SourceAction.DELETE, path)
     action.perform()
 
     assert not path.exists()
@@ -25,7 +25,7 @@ def test_action_delete_directory(fs):
     path = Path('./from/to-be-removed/example.txt')
     fs.create_file(str(path))
 
-    action = Action(SourceAction.DELETE, -1, path.parent, None)
+    action = Action(SourceAction.DELETE, path.parent)
     action.perform()
 
     assert not path.parent.exists()
@@ -40,7 +40,7 @@ def test_action_file_to_file(fs, source_action):
     fs.create_dir('/new')
 
     # file does not exist
-    action = Action(source_action, -1, source, target)
+    action = Action(source_action, source, target)
     action.perform()
     assert target.exists()
 
@@ -56,7 +56,7 @@ def test_action_file_to_existing_file(fs, source_action):
     fs.create_file(str(target))
 
     # file does not exist
-    action = Action(source_action, -1, source, target)
+    action = Action(source_action, source, target)
     
     # file exists now and should lead to an error if performed again
     with pytest.raises(Exception):
@@ -69,7 +69,7 @@ def test_action_file_to_directory(fs, source_action):
     target = Path('/to/target')
     fs.create_file(str(source))
 
-    action = Action(source_action, -1, source, target)
+    action = Action(source_action, source, target)
     action.perform()
 
     assert (target / 'example.txt').exists()
@@ -85,7 +85,7 @@ def test_action_directory_to_file(fs, source_action):
     fs.create_dir(str(source))
     fs.create_file(str(target))
 
-    action = Action(source_action, -1, source, target)
+    action = Action(source_action, source, target)
 
     with pytest.raises(IOError):
         action.perform()
@@ -99,7 +99,7 @@ def test_action_directory_to_new_directory(fs, source_action):
     fs.create_file(str(source / 'example.txt'))
     fs.create_dir(str(target.parent))
 
-    action = Action(source_action, -1, source, target)
+    action = Action(source_action, source, target)
     action.perform()
 
     assert target.exists()
@@ -117,7 +117,7 @@ def test_action_copy_directory_to_existing_directory(fs, source_action):
     fs.create_file(str(source / 'example.txt'))
     fs.create_dir(str(target))
 
-    action = Action(source_action, -1, source, target)
+    action = Action(source_action, source, target)
     action.perform()
 
     assert (target / 'some-directory' / 'example.txt').exists()
@@ -135,7 +135,7 @@ def test_action_copy_directory_to_existing_directory_same_name(fs, source_action
     fs.create_file(str(source / 'example.txt'))
     fs.create_dir(str(target))
 
-    action = Action(source_action, -1, source, target)
+    action = Action(source_action, source, target)
     action.perform()
 
     assert (target / 'example.txt').exists()

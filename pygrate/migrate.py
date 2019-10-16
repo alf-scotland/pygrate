@@ -25,21 +25,21 @@ class Action:
     def __init__(
         self,
         action,
-        priority,
         source,
-        target
+        target=None,
+        priority=None
     ):
         if not action:
             raise ValueError('Action cannot be none')
 
         self.action = SourceAction(action)
-        self.priority = priority
         self.source = source
 
         if self.action in (SourceAction.COPY, SourceAction.MOVE) and not target:
             raise ValueError(f'Target needs to be specified for {self.action}')
-
         self.target = target
+
+        self.priority = priority
 
     def __repr__(self):
         res = f'{self.action} {self.source}'
@@ -56,18 +56,18 @@ class Action:
     def _migrate_with_source_name(self):
         Action(
             self.action,
-            self.priority,
             self.source,
-            self.target / self.source.name
+            self.target / self.source.name,
+            self.priority
         ).perform()
 
     def _migrate_elements(self):
         for entry in self.source.iterdir():
             Action(
                 self.action,
-                self.priority,
                 entry,
-                self.target / entry.name
+                self.target / entry.name,
+                self.priority
             ).perform()
 
     def _migrate(self, func):
@@ -142,7 +142,7 @@ def sheet_to_actions(sheet: Worksheet):
         target = Path(target) if target else None
 
         if action:
-            action_cls = Action(action, len(path.parents), path, target)
+            action_cls = Action(action, path, target, len(path.parents))
             LOG.debug(f'Found action: {action_cls}')
             actions[path] = action_cls
         else:
