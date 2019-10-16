@@ -1,13 +1,148 @@
-import pathlib
+from pathlib import Path
 import os
 import logging
 
 import pytest
 
-from pygrate.migrate import read_migration_sheet, sheet_to_actions, perform_actions
+from pygrate.common import SourceAction
+from pygrate.migrate import read_migration_sheet, sheet_to_actions, perform_actions, Action
 
 
-EXAMPLE_FILE = pathlib.Path(__file__).parent / '_resources' / 'example.xlsx'
+EXAMPLE_FILE = Path(__file__).parent / '_resources' / 'example.xlsx'
+
+
+def test_action_delete_file(fs):
+    path = Path('./from/to-be-removed/example.txt')
+    fs.create_file(str(path))
+
+    action = Action(SourceAction.DELETE, -1, path, None)
+    action.perform()
+
+    assert not path.exists()
+
+
+def test_action_delete_directory(fs):
+    path = Path('./from/to-be-removed/example.txt')
+    fs.create_file(str(path))
+
+    action = Action(SourceAction.DELETE, -1, path.parent, None)
+    action.perform()
+
+    assert not path.parent.exists()
+    assert path.parent.parent.exists()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_action_file_to_file(fs, source_action):
+    source = Path('/from/to-be-copied/example.txt')
+    target = Path('/new/target/example.txt')
+    fs.create_file(str(source))
+    fs.create_dir('/new')
+
+    # file does not exist
+    action = Action(source_action, -1, source, target)
+    action.perform()
+    assert target.exists()
+
+    if source_action == SourceAction.MOVE:
+        assert not source.exists()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_action_file_to_existing_file(fs, source_action):
+    source = Path('/from/to-be-copied/example.txt')
+    target = Path('/new/target/example.txt')
+    fs.create_file(str(source))
+    fs.create_file(str(target))
+
+    # file does not exist
+    action = Action(source_action, -1, source, target)
+    
+    # file exists now and should lead to an error if performed again
+    with pytest.raises(Exception):
+        action.perform()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_action_file_to_directory(fs, source_action):
+    source = Path('/from/to-be-copied/example.txt')
+    target = Path('/to/target')
+    fs.create_file(str(source))
+
+    action = Action(source_action, -1, source, target)
+    action.perform()
+
+    assert (target / 'example.txt').exists()
+
+    if source_action == SourceAction.MOVE:
+        assert not source.exists()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_action_directory_to_file(fs, source_action):
+    source = Path('/from')
+    target = Path('/to/example.txt')
+    fs.create_dir(str(source))
+    fs.create_file(str(target))
+
+    action = Action(source_action, -1, source, target)
+
+    with pytest.raises(IOError):
+        action.perform()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_action_directory_to_new_directory(fs, source_action):
+    source = Path('/from/some-directory')
+    target = Path('/to/some-directory')
+    fs.create_dir(str(source))
+    fs.create_file(str(source / 'example.txt'))
+    fs.create_dir(str(target.parent))
+
+    action = Action(source_action, -1, source, target)
+    action.perform()
+
+    assert target.exists()
+
+    # test also if moved
+    if source_action == SourceAction.MOVE:
+        assert not source.exists()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_action_copy_directory_to_existing_directory(fs, source_action):
+    source = Path('/from/some-directory')
+    target = Path('/to/another-directory')
+    fs.create_dir(str(source))
+    fs.create_file(str(source / 'example.txt'))
+    fs.create_dir(str(target))
+
+    action = Action(source_action, -1, source, target)
+    action.perform()
+
+    assert (target / 'some-directory' / 'example.txt').exists()
+
+    # test also if moved
+    if source_action == SourceAction.MOVE:
+        assert not source.exists()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_action_copy_directory_to_existing_directory_same_name(fs, source_action):
+    source = Path('/from/some-directory')
+    target = Path('/to/some-directory')
+    fs.create_dir(str(source))
+    fs.create_file(str(source / 'example.txt'))
+    fs.create_dir(str(target))
+
+    action = Action(source_action, -1, source, target)
+    action.perform()
+
+    assert (target / 'example.txt').exists()
+
+    # test also if moved
+    if source_action == SourceAction.MOVE:
+        assert not source.exists()
 
 
 @pytest.fixture
