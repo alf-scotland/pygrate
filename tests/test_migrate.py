@@ -20,6 +20,7 @@ def _mock_directory_structure(fs):
     fs.create_file('/source-directory/c/d/results/Thumbs.db')
     fs.create_file('/source-directory/c/d/scripts/example.py')
     fs.create_dir('/source-directory/c/e/data')
+    fs.create_dir('/target-directory/c/e')
 
 
 def test_read_migration_sheet(fs):
@@ -60,6 +61,8 @@ def test_perform_actions(example_migration_sheet, fs):
     # check if moved
     assert os.path.exists('/target-directory/c/d')
     assert os.path.exists('/target-directory/c/d/scripts/example.py')
+
+    # check if copied
     assert os.path.exists('/target-directory/c/e')
     assert os.path.exists('/target-directory/c/e/data')
 
@@ -78,6 +81,15 @@ def test_perform_actions_missing_source(example_migration_sheet, fs):
 def test_perform_actions_existing_target(example_migration_sheet, fs):
     _mock_directory_structure(fs)
     fs.create_dir('/target-directory/c/d/d')
+
+    actions = sheet_to_actions(example_migration_sheet)
+    with pytest.raises(IOError):
+        perform_actions(actions)
+
+
+def test_perform_actions_copy_on_file(example_migration_sheet, fs):
+    _mock_directory_structure(fs)
+    fs.create_file('/target-directory/c/e/data')
 
     actions = sheet_to_actions(example_migration_sheet)
     with pytest.raises(IOError):

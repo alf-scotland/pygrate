@@ -8,6 +8,8 @@ from distutils.version import LooseVersion
 
 import xlsxwriter
 
+from pygrate.common import SourceAction
+
 LOG = logging.getLogger(__name__)
 
 
@@ -124,7 +126,7 @@ def _write_validations(ws):
 
     ws.data_validation(1, 4, _OFFSET, 4, {
         'validate': 'list',
-        'source': ['Not defined', 'Move', 'Delete']
+        'source': list(map(str, SourceAction))
     })
 
 
