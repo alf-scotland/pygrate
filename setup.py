@@ -9,7 +9,7 @@ setup(
     ],
     entry_points = {
         'console_scripts': [
-            'pygrate-create=pygrate.create:main'
+            'pygrate-create=pygrate.create:main',
             'pygrate-migrate=pygrate.migrate:main'
         ],
     }
