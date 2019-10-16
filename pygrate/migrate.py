@@ -52,27 +52,59 @@ class Action:
             self.source.unlink()
         else:
             shutil.rmtree(str(self.source))
-    
-    def _perform_on_children(self):
-        for s_source in self.source.iterdir():
+
+    def _migrate_with_source_name(self):
+        Action(
+            self.action,
+            self.priority,
+            self.source,
+            self.target / self.source.name
+        ).perform()
+
+    def _migrate_elements(self):
+        for entry in self.source.iterdir():
             Action(
                 self.action,
-                -1,
-                s_source,
-                self.target / s_source.name
+                self.priority,
+                entry,
+                self.target / entry.name
             ).perform()
-    
+
     def _migrate(self, func):
-        if self.target.exists() and self.source.is_dir() and self.target.is_dir():
-            LOG.debug(f'Source {self.source} and target {self.target} are existing directories')
-            self._perform_on_children()
-        elif self.target.exists():
+        if self.target.exists() and not self.target.is_dir():
             raise IOError(f'Target exists: {self.target}')
+
+        target_is_file = bool(self.target.suffix)
+        if self.source.is_dir() and target_is_file:
+            raise IOError('Cannot migrate a directory to a file')
+
+        # is the target an existing directory, change target to
+        # target / source.name
+        if self.source.is_dir() and self.target.is_dir():
+            # migrate all elements in source if names are the same
+            if self.source.name.lower() == self.target.name.lower():
+                self._migrate_elements()
+
+                # clean up if moving things here
+                if self.action == SourceAction.MOVE:
+                    self.source.rmdir()
+            else:
+                self._migrate_with_source_name()
+
+        elif self.source.is_file() and not target_is_file:
+            self._migrate_with_source_name()
+
         else:
+            target_parent = self.target.parent
+            if not target_parent.exists():
+                # parent does not exist, lets try and create it
+                target_parent.mkdir(parents=True)
+
             func(str(self.source), str(self.target))
 
     def _copy(self):
-        self._migrate(shutil.copytree)
+        func = shutil.copy2 if self.source.is_file() else shutil.copytree
+        self._migrate(func)
 
     def _move(self):
         self._migrate(shutil.move)
