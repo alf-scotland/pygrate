@@ -8,6 +8,8 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet, Cell
 
+from pygrate.common import SourceAction
+
 
 LOG = logging.getLogger(__name__)
 
@@ -27,43 +29,55 @@ class Action:
         source,
         target
     ):
-        if not action or action.lower() not in ('move', 'delete'):
-            raise ValueError(f'Unknown action: {action}')
+        if not action:
+            raise ValueError('Action cannot be none')
 
-        self.action = action.lower()
+        self.action = SourceAction(action)
         self.priority = priority
         self.source = source
 
-        if self.action == 'move' and not target:
-            raise ValueError('Target needs to be specified for action move')
+        if self.action in (SourceAction.COPY, SourceAction.MOVE) and not target:
+            raise ValueError(f'Target needs to be specified for {self.action}')
 
         self.target = target
-    
+
     def __repr__(self):
         res = f'{self.action} {self.source}'
-        if self.action.lower() == 'move':
+        if self.action.lower() in (SourceAction.COPY, SourceAction.MOVE):
             res += f' -> {self.target}'
         return res
-    
-    def validate(self):
-        # check if source exists
-        if not self.source.exists():
-            raise Exception(f'Source does not exist: {self.source}')
-    
+
     def _delete(self):
         if self.source.is_file():
             self.source.unlink()
         else:
             shutil.rmtree(str(self.source))
-    
+
+    def _copy(self):
+        # check if target exists to reverse copy things from source
+        if self.target.exists() and self.source.is_dir() and self.target.is_dir():
+            for s_source in self.source.iterdir():
+                Action(
+                    SourceAction.COPY,
+                    -1,
+                    s_source,
+                    self.target / s_source.name
+                ).perform()
+        else:
+            shutil.copytree(str(self.source), str(self.target))
+
     def _move(self):
         shutil.move(str(self.source), str(self.target))
-    
+
     def perform(self):
-        if self.action == 'delete':
+        if self.action == SourceAction.DELETE:
             self._delete()
-        elif self.action == 'move':
+        elif self.action == SourceAction.COPY:
+            self._copy()
+        elif self.action == SourceAction.MOVE:
             self._move()
+        elif self.action == SourceAction.NOT_DEFINED:
+            raise ValueError('Action not defined')
         else:
             raise ValueError(f'Unknown action: {self.action}')
 
@@ -89,14 +103,14 @@ def sheet_to_actions(sheet: Worksheet):
             actions[path] = action_cls
         else:
             paths.append(path)
-    
+
     # check if all paths are addressed
     for path in paths:
         has_parent_action = any(p in actions for p in path.parents)
-        
+
         if not has_parent_action:
             LOG.warning(f'{path} has no action')
-    
+
     return actions
 
 
