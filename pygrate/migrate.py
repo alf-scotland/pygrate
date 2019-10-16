@@ -111,7 +111,7 @@ def sheet_to_actions(sheet: Worksheet):
 
         if action:
             action_cls = Action(action, len(path.parents), path, target)
-            LOG.info(f'Found action: {action_cls}')
+            LOG.debug(f'Found action: {action_cls}')
             actions[path] = action_cls
         else:
             paths.append(path)
