@@ -5,7 +5,13 @@ import logging
 import pytest
 
 from pygrate.common import SourceAction
-from pygrate.migrate import read_migration_sheet, sheet_to_actions, perform_actions, Action
+from pygrate.migrate import (
+    read_migration_sheet, 
+    sheet_to_actions, 
+    perform_actions,  
+    dry_run_actions,  
+    Action
+)
 
 
 EXAMPLE_FILE = Path(__file__).parent / '_resources' / 'example.xlsx'
@@ -150,12 +156,16 @@ def example_migration_sheet():
     return read_migration_sheet(EXAMPLE_FILE)
 
 
-def _mock_directory_structure(fs):
+def _mock_source_directory_structure(fs):
     fs.create_dir('/source-directory/a/b')
     fs.create_file('/source-directory/c/d/Pipfile')
     fs.create_file('/source-directory/c/d/results/Thumbs.db')
     fs.create_file('/source-directory/c/d/scripts/example.py')
     fs.create_dir('/source-directory/c/e/data')
+
+
+def _mock_directory_structure(fs):
+    _mock_source_directory_structure(fs)
     fs.create_dir('/target-directory/c/e')
 
 
@@ -207,6 +217,17 @@ def test_perform_actions(example_migration_sheet, fs, caplog):
     # check if copied
     assert os.path.exists('/target-directory/c/e')
     assert os.path.exists('/target-directory/c/e/data')
+
+
+def test_dry_run_actions(example_migration_sheet, fs, caplog):
+    _mock_source_directory_structure(fs)
+
+    actions = sheet_to_actions(example_migration_sheet)
+
+    with caplog.at_level(logging.INFO):
+        dry_run_actions(actions)
+    
+    assert not os.path.exists('/target-directory')
 
 
 def test_perform_actions_missing_source(example_migration_sheet, fs):
