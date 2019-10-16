@@ -43,7 +43,7 @@ class Action:
 
     def __repr__(self):
         res = f'{self.action} {self.source}'
-        if self.action.lower() in (SourceAction.COPY, SourceAction.MOVE):
+        if self.action in (SourceAction.COPY, SourceAction.MOVE):
             res += f' -> {self.target}'
         return res
 
