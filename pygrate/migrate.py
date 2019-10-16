@@ -47,30 +47,33 @@ class Action:
             res += f' -> {self.target}'
         return res
 
-    def _delete(self):
+    def _delete(self, dry_run):
+        if dry_run:
+            LOG.info('Would delete {self.source}')
+
         if self.source.is_file():
             self.source.unlink()
         else:
             shutil.rmtree(str(self.source))
 
-    def _migrate_with_source_name(self):
+    def _migrate_with_source_name(self, dry_run):
         Action(
             self.action,
             self.source,
             self.target / self.source.name,
             self.priority
-        ).perform()
+        ).perform(dry_run=dry_run)
 
-    def _migrate_elements(self):
+    def _migrate_elements(self, dry_run):
         for entry in self.source.iterdir():
             Action(
                 self.action,
                 entry,
                 self.target / entry.name,
                 self.priority
-            ).perform()
+            ).perform(dry_run=dry_run)
 
-    def _migrate(self, func):
+    def _migrate(self, func, dry_run):
         if self.target.exists() and not self.target.is_dir():
             raise IOError(f'Target exists: {self.target}')
 
@@ -83,47 +86,55 @@ class Action:
         if self.source.is_dir() and self.target.is_dir():
             # migrate all elements in source if names are the same
             if self.source.name.lower() == self.target.name.lower():
-                self._migrate_elements()
+                self._migrate_elements(dry_run)
 
                 # clean up if moving things here
-                if self.action == SourceAction.MOVE:
+                if self.action == SourceAction.MOVE and not dry_run:
                     self.source.rmdir()
             else:
-                self._migrate_with_source_name()
+                self._migrate_with_source_name(dry_run)
 
         elif self.source.is_file() and not target_is_file:
-            self._migrate_with_source_name()
+            self._migrate_with_source_name(dry_run)
 
         else:
             target_parent = self.target.parent
             if not target_parent.exists():
-                # parent does not exist, lets try and create it
-                target_parent.mkdir(parents=True)
+                if dry_run:
+                    LOG.info('Would create directory path: {target_parent}')
+                else:
+                    # parent does not exist, lets try and create it
+                    target_parent.mkdir(parents=True)
 
-            func(str(self.source), str(self.target))
+            if dry_run:
+                LOG.info(f'Would use {func} to migrate {self.source} -> {self.target}')
+            else:
+                func(str(self.source), str(self.target))
 
-    def _copy(self):
+    def _copy(self, dry_run):
         func = shutil.copy2 if self.source.is_file() else shutil.copytree
-        self._migrate(func)
+        self._migrate(func, dry_run)
 
-    def _move(self):
-        self._migrate(shutil.move)
+    def _move(self, dry_run):
+        self._migrate(shutil.move, dry_run)
 
-    def perform(self):
-        LOG.info(f'About to perform: {self}')
+    def perform(self, dry_run=False):
+        action_msg = 'dry-run' if dry_run else 'perform'
+        LOG.info(f'About to {action_msg}: {self}')
 
         if self.action == SourceAction.DELETE:
-            self._delete()
+            self._delete(dry_run)
         elif self.action == SourceAction.COPY:
-            self._copy()
+            self._copy(dry_run)
         elif self.action == SourceAction.MOVE:
-            self._move()
+            self._move(dry_run)
         elif self.action == SourceAction.NOT_DEFINED:
             raise ValueError('Action not defined')
         else:
             raise ValueError(f'Unknown action: {self.action}')
 
-        LOG.info(f'Action performed: {self}')
+        if not dry_run:
+            LOG.info(f'Action performed: {self}')
 
     __str__ = __repr__
 
@@ -170,7 +181,7 @@ def perform_actions(actions):
 
 def dry_run_actions(actions):
     for action in _prioritize_actions(actions):
-        LOG.info(f'Would perform action: {action}')
+        action.perform(dry_run=True)        
 
 
 def migrate(workbook_path, sheet_name, dry_run=False):
