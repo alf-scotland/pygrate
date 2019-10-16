@@ -206,8 +206,10 @@ def test_perform_actions(example_migration_sheet, fs, caplog):
     warnings = [r for r in caplog.records if r.levelname == 'WARNING']
     assert len(warnings) == 2
 
+    # check if ignored
+    assert os.path.exists('/source-directory/a')
+
     # check if deleted
-    assert not os.path.exists('/source-directory/a')
     assert not os.path.exists('/target-directory/c/d/results/Thumbs.db')
 
     # check if moved
