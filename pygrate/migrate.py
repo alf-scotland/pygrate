@@ -128,6 +128,8 @@ class Action:
             self._copy(dry_run)
         elif self.action == SourceAction.MOVE:
             self._move(dry_run)
+        elif self.action == SourceAction.IGNORE:
+            LOG.info(f'Ignoring source: {self.source}')
         elif self.action == SourceAction.NOT_DEFINED:
             raise ValueError('Action not defined')
         else:
