@@ -49,12 +49,12 @@ class Action:
 
     def _delete(self, dry_run):
         if dry_run:
-            LOG.info('Would delete {self.source}')
-
-        if self.source.is_file():
-            self.source.unlink()
+            LOG.info(f'Would delete {self.source}')
         else:
-            shutil.rmtree(str(self.source))
+            if self.source.is_file():
+                self.source.unlink()
+            else:
+                shutil.rmtree(str(self.source))
 
     def _migrate_with_source_name(self, dry_run):
         Action(
@@ -101,13 +101,13 @@ class Action:
             target_parent = self.target.parent
             if not target_parent.exists():
                 if dry_run:
-                    LOG.info('Would create directory path: {target_parent}')
+                    LOG.info(f'Would create directory path: {target_parent}')
                 else:
                     # parent does not exist, lets try and create it
                     target_parent.mkdir(parents=True)
 
             if dry_run:
-                LOG.info(f'Would use {func} to migrate {self.source} -> {self.target}')
+                LOG.info(f'Would use {func.__name__} to migrate {self.source} -> {self.target}')
             else:
                 func(str(self.source), str(self.target))
 

@@ -228,6 +228,7 @@ def test_dry_run_actions(example_migration_sheet, fs, caplog):
         dry_run_actions(actions)
     
     assert not os.path.exists('/target-directory')
+    assert os.path.exists('/source-directory/a')
 
 
 def test_perform_actions_missing_source(example_migration_sheet, fs):
