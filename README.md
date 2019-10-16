@@ -21,7 +21,7 @@ pygrate-create <directory> <workbook.xlsx>
 
 All files within the generated migration sheets should be addressed with an action. The action has to be one of `Copy`, `Move`, or `Delete`. If `Copy` or `Move` were specified a valid target directory needs to be specified.
 
-If the source and target paths are both directories and the action is either `Copy` or `Move`, the migration will attempt to copy or move all elements in the source directory to the target directory, respectively.
+If the source and target paths are both directories with the same name (ignoring case differences) and the action is either `Copy` or `Move`, the migration will attempt to copy or move all elements in the source directory to the target directory, respectively.
 
 The migration will not overwrite files and fail when executed.
 
