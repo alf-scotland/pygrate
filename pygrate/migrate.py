@@ -38,8 +38,17 @@ class Action:
         if self.action in (SourceAction.COPY, SourceAction.MOVE) and not target:
             raise ValueError(f'Target needs to be specified for {self.action}')
         self.target = target
+        self._target_is_file = bool(
+            self.target.suffix) if self.target else False
 
         self.priority = priority
+
+    @property
+    def target_is_file(self):
+        return self._target_is_file
+
+    def mark_target_as_file(self):
+        self._target_is_file = True
 
     def __repr__(self):
         res = f'{self.action} {self.source}'
@@ -57,12 +66,17 @@ class Action:
                 shutil.rmtree(str(self.source))
 
     def _migrate_with_source_name(self, dry_run):
-        Action(
+        a = Action(
             self.action,
             self.source,
             self.target / self.source.name,
             self.priority
-        ).perform(dry_run=dry_run)
+        )
+
+        if self.source.is_file():
+            a.mark_target_as_file()
+
+        a.perform(dry_run=dry_run)
 
     def _migrate_elements(self, dry_run):
         for entry in self.source.iterdir():
@@ -77,8 +91,7 @@ class Action:
         if self.target.exists() and not self.target.is_dir():
             raise IOError(f'Target exists: {self.target}')
 
-        target_is_file = bool(self.target.suffix)
-        if self.source.is_dir() and target_is_file:
+        if self.source.is_dir() and self.target_is_file:
             raise IOError('Cannot migrate a directory to a file')
 
         # is the target an existing directory, change target to
@@ -94,7 +107,7 @@ class Action:
             else:
                 self._migrate_with_source_name(dry_run)
 
-        elif self.source.is_file() and not target_is_file:
+        elif self.source.is_file() and not self.target_is_file:
             self._migrate_with_source_name(dry_run)
 
         else:
@@ -107,7 +120,8 @@ class Action:
                     target_parent.mkdir(parents=True)
 
             if dry_run:
-                LOG.info(f'Would use {func.__name__} to migrate {self.source} -> {self.target}')
+                LOG.info(
+                    f'Would use {func.__name__} to migrate {self.source} -> {self.target}')
             else:
                 func(str(self.source), str(self.target))
 
@@ -183,7 +197,7 @@ def perform_actions(actions):
 
 def dry_run_actions(actions):
     for action in _prioritize_actions(actions):
-        action.perform(dry_run=True)        
+        action.perform(dry_run=True)
 
 
 def migrate(workbook_path, sheet_name, dry_run=False):
