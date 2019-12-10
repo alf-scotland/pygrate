@@ -260,3 +260,21 @@ def test_perform_actions_copy_on_file(example_migration_sheet, fs):
     actions = sheet_to_actions(example_migration_sheet)
     with pytest.raises(IOError):
         perform_actions(actions)
+
+
+def test_action_copy_file_like_directory_to_directory(fs):
+    source_path = Path('/source/aFileWithoutExtension')
+    target_path = Path('/target/directory')
+    target_success = Path(target_path / 'aFileWithoutExtension')
+
+    fs.create_file(source_path)
+    fs.create_dir(target_path)
+    
+    Action(
+        SourceAction.COPY,
+        source_path,
+        target_path
+    ).perform()
+
+    assert target_success.exists()
+    assert target_success.is_file()
