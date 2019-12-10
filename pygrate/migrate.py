@@ -1,8 +1,10 @@
+import copy
 import os
 import argparse
 import logging
 import shutil
 from collections import defaultdict
+from functools import partial
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -42,6 +44,7 @@ class Action:
             self.target.suffix) if self.target else False
 
         self.priority = priority
+        self._ignore_sub_folders = []
 
     @property
     def target_is_file(self):
@@ -49,6 +52,12 @@ class Action:
 
     def mark_target_as_file(self):
         self._target_is_file = True
+    
+    def ignore_sub_folder(self, path):
+        if self.source.is_file():
+            raise ValueError('Source is a file and cannot contain other folders')
+
+        self._ignore_sub_folders.append(path)
 
     def __repr__(self):
         res = f'{self.action} {self.source}'
@@ -80,12 +89,20 @@ class Action:
 
     def _migrate_elements(self, dry_run):
         for entry in self.source.iterdir():
-            Action(
+            if entry in self._ignore_sub_folders:
+                continue
+
+            a = Action(
                 self.action,
                 entry,
                 self.target / entry.name,
                 self.priority
-            ).perform(dry_run=dry_run)
+            )
+
+            for path in self._ignore_sub_folders:
+                a.ignore_sub_folder(path)
+            
+            a.perform(dry_run=dry_run)
 
     def _migrate(self, func, dry_run):
         if self.target.exists() and not self.target.is_dir():
@@ -127,6 +144,19 @@ class Action:
 
     def _copy(self, dry_run):
         func = shutil.copy2 if self.source.is_file() else shutil.copytree
+
+        def _ignore_sub_folder_callback(parent, contents):
+            ignore = []
+            for path in contents:
+                if Path(parent + os.path.sep + path) in self._ignore_sub_folders:
+                    ignore.append(path)
+            return ignore
+
+        if self._ignore_sub_folders:
+            LOG.debug(self._ignore_sub_folders)
+            func = partial(func, ignore=_ignore_sub_folder_callback)
+            func.__name__ = shutil.copytree.__name__
+
         self._migrate(func, dry_run)
 
     def _move(self, dry_run):
@@ -189,15 +219,44 @@ def _prioritize_actions(actions):
     return sorted(actions.values(), key=lambda a: a.priority, reverse=True)
 
 
-def perform_actions(actions):
-    """ Perform actions """
-    for action in _prioritize_actions(actions):
-        action.perform()
+def _convert_encapsulated_actions(actions):
+    actions_modified = copy.deepcopy(actions)
+
+    for path, action in actions.items():
+        # is action encapsulated?
+        for parent in action.source.parents:
+            if parent in actions_modified and actions[parent].action is not SourceAction.IGNORE:
+                parent_action = actions_modified[parent]
+
+                # if parent action and action are the same, pop it
+                if parent_action.action == action.action:
+                    LOG.info(f'Removing encapsulated {action} addressed in {parent_action}')
+                    actions_modified.pop(path)
+
+                # if action is ignore
+                if action.action is SourceAction.IGNORE:
+                    if parent_action.action is SourceAction.COPY:
+                        LOG.info(f'Adding {action.source} as ignored directory to {parent_action}')
+                        parent_action.ignore_sub_folder(path)
+                        actions_modified.pop(path)
+                    elif parent_action.action is SourceAction.MOVE:
+                        LOG.info(f'Converting {action} into delete due to encapsulation in {parent_action}')
+                        actions_modified[path] = Action(SourceAction.DELETE, action.source, priority=action.priority)
+                
+                break  # just work on the first matching parent
+
+    return actions_modified
+
+
+def perform_actions(actions, dry_run=False):
+    actions = _convert_encapsulated_actions(actions)
+    actions = _prioritize_actions(actions)
+    for action in actions:
+        action.perform(dry_run=dry_run)
 
 
 def dry_run_actions(actions):
-    for action in _prioritize_actions(actions):
-        action.perform(dry_run=True)
+    perform_actions(actions, dry_run=True)
 
 
 def migrate(workbook_path, sheet_name, dry_run=False):

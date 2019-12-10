@@ -6,10 +6,10 @@ import pytest
 
 from pygrate.common import SourceAction
 from pygrate.migrate import (
-    read_migration_sheet, 
-    sheet_to_actions, 
-    perform_actions,  
-    dry_run_actions,  
+    read_migration_sheet,
+    sheet_to_actions,
+    perform_actions,
+    dry_run_actions,
     Action
 )
 
@@ -63,7 +63,7 @@ def test_action_file_to_existing_file(fs, source_action):
 
     # file does not exist
     action = Action(source_action, source, target)
-    
+
     # file exists now and should lead to an error if performed again
     with pytest.raises(Exception):
         action.perform()
@@ -158,7 +158,7 @@ def example_migration_sheet():
 
 def _mock_source_directory_structure(fs):
     fs.create_dir('/source-directory/a/b')
-    fs.create_file('/source-directory/c/d/Pipfile')
+    fs.create_file('/source-directory/c/d/ignore')
     fs.create_file('/source-directory/c/d/results/Thumbs.db')
     fs.create_file('/source-directory/c/d/scripts/example.py')
     fs.create_dir('/source-directory/c/e/data')
@@ -192,7 +192,7 @@ def test_read_migration_sheet_with_wrong_name(fs):
 def test_sheet_to_actions(example_migration_sheet):
     actions = sheet_to_actions(example_migration_sheet)
     assert isinstance(actions, dict)
-    assert len(actions) == 4
+    assert len(actions) == 6
 
 
 def test_perform_actions(example_migration_sheet, fs, caplog):
@@ -208,12 +208,16 @@ def test_perform_actions(example_migration_sheet, fs, caplog):
 
     # check if ignored
     assert os.path.exists('/source-directory/a')
+    assert not os.path.exists('/target-directory/c/d/ignore')
+    assert not os.path.exists('/target-directory/c/e/ignore')
 
     # check if deleted
+    assert not os.path.exists('/source-directory/c/d/results/Thumbs.db')
     assert not os.path.exists('/target-directory/c/d/results/Thumbs.db')
 
     # check if moved
     assert os.path.exists('/target-directory/c/d')
+    assert os.path.exists('/target-directory/c/d/results')
     assert os.path.exists('/target-directory/c/d/scripts/example.py')
 
     # check if copied
@@ -228,7 +232,7 @@ def test_dry_run_actions(example_migration_sheet, fs, caplog):
 
     with caplog.at_level(logging.INFO):
         dry_run_actions(actions)
-    
+
     assert not os.path.exists('/target-directory')
     assert os.path.exists('/source-directory/a')
 
@@ -246,7 +250,7 @@ def test_perform_actions_missing_source(example_migration_sheet, fs):
 
 def test_perform_actions_existing_target(example_migration_sheet, fs):
     _mock_directory_structure(fs)
-    fs.create_file('/target-directory/c/d/Pipfile')
+    fs.create_file('/target-directory/c/e/data')
 
     actions = sheet_to_actions(example_migration_sheet)
     with pytest.raises(IOError):
@@ -269,7 +273,7 @@ def test_action_copy_file_like_directory_to_directory(fs):
 
     fs.create_file(source_path)
     fs.create_dir(target_path)
-    
+
     Action(
         SourceAction.COPY,
         source_path,
@@ -278,3 +282,25 @@ def test_action_copy_file_like_directory_to_directory(fs):
 
     assert target_success.exists()
     assert target_success.is_file()
+
+
+@pytest.mark.parametrize('source_action', [SourceAction.COPY, SourceAction.MOVE])
+def test_ignore_inside_copy_or_move(source_action, fs):
+    target_path = Path('/target-directory/example')
+    fs.create_dir(target_path)
+
+    source_path = Path('/source-directory/example')
+    source_path_action = source_path / 'action'
+    source_path_ignore = source_path / 'ignore' / 'me'
+    fs.create_dir(source_path_action)
+    fs.create_dir(source_path_ignore)
+
+    actions = {
+        source_path: Action(source_action, source_path, target_path, priority=0),
+        source_path_ignore: Action(SourceAction.IGNORE, source_path_ignore, priority=1),
+    }
+
+    perform_actions(actions)
+
+    assert (target_path / 'action').exists()
+    assert not (target_path / 'ignore' / 'me').exists()
