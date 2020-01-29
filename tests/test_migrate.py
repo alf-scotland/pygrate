@@ -63,7 +63,6 @@ def test_action_file_to_existing_file(fs, source_action):
 
     # file does not exist
     action = Action(source_action, source, target)
-
     # file exists now and should lead to an error if performed again
     with pytest.raises(Exception):
         action.perform()
@@ -232,7 +231,6 @@ def test_dry_run_actions(example_migration_sheet, fs, caplog):
 
     with caplog.at_level(logging.INFO):
         dry_run_actions(actions)
-
     assert not os.path.exists('/target-directory')
     assert os.path.exists('/source-directory/a')
 
