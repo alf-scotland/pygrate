@@ -199,6 +199,9 @@ def sheet_to_actions(sheet: Worksheet):
         path = Path(path)
         target = Path(target) if target else None
 
+        if target and not action:
+            raise ValueError(f'Target defined without action: {target}')
+
         if action:
             action_cls = Action(action, path, target, len(path.parents))
             LOG.debug(f'Found action: {action_cls}')
