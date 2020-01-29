@@ -55,7 +55,7 @@ class Action:
     
     def ignore_sub_folder(self, path):
         if self.source.is_file():
-            raise ValueError('Source is a file and cannot contain other folders')
+            raise ValueError(f'Source is a file and cannot contain other folders: {self.source}')
 
         self._ignore_sub_folders.append(path)
 
@@ -99,8 +99,9 @@ class Action:
                 self.priority
             )
 
-            for path in self._ignore_sub_folders:
-                a.ignore_sub_folder(path)
+            if a.source.is_dir():
+                for path in self._ignore_sub_folders:
+                    a.ignore_sub_folder(path)
             
             a.perform(dry_run=dry_run)
 
