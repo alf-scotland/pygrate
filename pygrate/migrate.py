@@ -55,7 +55,7 @@ class Action:
     
     def ignore_sub_folder(self, path):
         if self.source.is_file():
-            raise ValueError(f'Source is a file and cannot contain other folders: {self.source}')
+            raise ValueError(f'Source is a file and cannot contain other folders: {self}')
 
         self._ignore_sub_folders.append(path)
 
@@ -107,10 +107,10 @@ class Action:
 
     def _migrate(self, func, dry_run):
         if self.target.exists() and not self.target.is_dir():
-            raise IOError(f'Target exists: {self.target}')
+            raise IOError(f'Target exists: {self}')
 
         if self.source.is_dir() and self.target_is_file:
-            raise IOError('Cannot migrate a directory to a file')
+            raise IOError(f'Cannot migrate a directory to a file: {self}')
 
         # is the target an existing directory, change target to
         # target / source.name
