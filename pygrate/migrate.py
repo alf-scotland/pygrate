@@ -38,7 +38,7 @@ class Action:
         self.source = source
 
         if self.action in (SourceAction.COPY, SourceAction.MOVE) and not target:
-            raise ValueError(f'Target needs to be specified for {self.action}')
+            raise ValueError(f'Target needs to be specified for {self.action} on {self.source}')
         self.target = target
         self._target_is_file = bool(
             self.target.suffix) if self.target else False
