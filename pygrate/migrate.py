@@ -84,6 +84,9 @@ class Action:
 
         if self.source.is_file():
             a.mark_target_as_file()
+        
+        for f in self._ignore_sub_folders:
+            a.ignore_sub_folder(f)
 
         a.perform(dry_run=dry_run)
 
@@ -141,6 +144,7 @@ class Action:
                 LOG.info(
                     f'Would use {func.__name__} to migrate {self.source} -> {self.target}')
             else:
+                LOG.debug(f'About to use {func}')
                 func(str(self.source), str(self.target))
 
     def _copy(self, dry_run):

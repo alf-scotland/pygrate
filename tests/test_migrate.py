@@ -302,3 +302,22 @@ def test_ignore_inside_copy_or_move(source_action, fs):
 
     assert (target_path / 'action').exists()
     assert not (target_path / 'ignore' / 'me').exists()
+
+
+def test_encapsulated_ignore(fs):
+    source_path = Path('/source')
+    encapuslated_path = source_path / 'encapsulated' / 'directory'
+
+    target_path = Path('/target')
+
+    fs.create_dir(encapuslated_path)
+    fs.create_dir(target_path)
+
+    action = Action(SourceAction.COPY, source_path, target_path, 1)
+    action.ignore_sub_folder(encapuslated_path)
+
+    action.perform()
+
+    assert target_path.exists()
+    assert Path('/target/source/encapsulated').exists()
+    assert not Path('/target/source/encapsulated/directory').exists()
